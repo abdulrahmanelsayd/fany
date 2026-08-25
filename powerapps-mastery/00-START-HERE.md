@@ -81,6 +81,7 @@ Each lesson contains:
 | 19 | `19-COMPLETE-TOPIC-RADAR.md` | Cover the full Power Apps topic surface without blind spots. |
 | 20 | `20-POWER-FX-CRASH-SHEET.md` | Memorize and understand essential Power Fx patterns. |
 | 21 | `21-SCENARIO-ANSWER-PLAYBOOK.md` | Structure strong scenario, troubleshooting, and architecture answers. |
+| 22 | `22-IT-SERVICE-MANAGEMENT-PROJECT-WALKTHROUGH.md` | Build and explain the exact Power Apps + SharePoint + Power Automate CV project. |
 
 ## Prerequisites
 
