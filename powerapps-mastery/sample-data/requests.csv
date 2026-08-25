@@ -1,0 +1,9 @@
+RequestId,Title,RequestType,Status,Amount,RequestedByEmail,ManagerEmail,RequestedOn,NeededBy,Department,Description
+REQ-1001,Replacement keyboard,Equipment,Submitted,45,alex@contoso.com,manager@contoso.com,2026-08-01,2026-08-15,Operations,Several keys no longer work
+REQ-1002,Power Apps advanced training,Training,Approved,650,samira@contoso.com,manager@contoso.com,2026-08-03,2026-09-20,Technology,Role-based advanced maker course
+REQ-1003,Cairo client visit,Travel,Draft,180,alex@contoso.com,manager@contoso.com,2026-08-07,2026-08-28,Sales,Local travel and accommodation
+REQ-1004,Ergonomic chair,Equipment,Rejected,320,omar@contoso.com,manager2@contoso.com,2026-08-08,2026-09-01,Finance,Chair required after workplace assessment
+REQ-1005,Conference registration,Training,Submitted,400,lina@contoso.com,manager2@contoso.com,2026-08-10,2026-10-05,Marketing,Annual industry conference
+REQ-1006,Second monitor,Equipment,Fulfilled,210,samira@contoso.com,manager@contoso.com,2026-07-20,2026-08-05,Technology,Monitor for testing responsive applications
+REQ-1007,Team planning offsite,Travel,Approved,900,omar@contoso.com,manager2@contoso.com,2026-08-12,2026-09-12,Finance,Quarterly planning workshop
+REQ-1008,Professional certification exam,Training,Draft,165,lina@contoso.com,manager2@contoso.com,2026-08-15,2026-11-01,Marketing,Exam voucher request
