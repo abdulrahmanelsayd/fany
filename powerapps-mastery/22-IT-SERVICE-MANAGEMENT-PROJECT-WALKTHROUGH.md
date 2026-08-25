@@ -1,371 +1,112 @@
-# 22 — IT Service Management & Workflow Automation Project
+# IT Service Management Project — Smart Interview Walkthrough
 
-> A complete beginner-friendly build and interview-defense guide for the project described in the CV
+> Power Apps + Power Automate + SharePoint
 
-Technology: **Power Apps + Power Automate + SharePoint**
+## 1. Understand the project in one minute
 
-## 1. What the project actually does
+The project replaces IT requests sent through emails or messages with one central application.
 
-The system is an internal IT help desk. Instead of employees sending random emails or WhatsApp messages to the IT team, everyone uses one application.
-
-An employee can:
-
-- Submit an IT request.
-- Select a category and priority.
-- Attach a screenshot.
-- See the request number, assigned agent, and current status.
-- Follow the request until it is resolved.
-
-An IT agent can:
-
-- See the support queue.
-- Filter requests by category, priority, status, or assignee.
-- Assign or reassign a request.
-- Update status.
-- Add a resolution.
-- Close the request.
-
-Power Automate can:
-
-- Generate a request number.
-- Assign the request based on its category.
-- Calculate a due date from the category SLA.
-- Send creation, assignment, approval, status, and resolution notifications.
-- Request approval for selected categories.
-- Send scheduled overdue reminders.
-- Write important changes to a history list.
-
-## 2. The CV bullets translated into technical work
-
-### “Built a Power Apps solution for submitting, categorizing, assigning, and tracking requests”
-
-This means a canvas app was created with employee and IT-agent screens. The app reads and updates SharePoint records using galleries, forms, filters, `SubmitForm`, and `Patch`.
-
-### “Used SharePoint Lists as the data source”
-
-This means SharePoint stores the real records after the app closes. A main list stores requests; smaller configuration/history lists store categories, support agents, and important events.
-
-### “Developed Power Automate cloud flows”
-
-This means the app is not responsible for every background process. Flows react when a SharePoint item is created or modified, start approvals, send notifications, and perform scheduled reminders.
-
-### “Documented application and workflow logic”
-
-This means the solution has a data dictionary, screen list, formula/flow explanation, security assumptions, error behavior, test cases, ownership, and troubleshooting notes. This file is an example of that documentation.
-
-## 3. The system in one picture
+- Employees submit and track IT requests in a **Power Apps canvas app**.
+- **SharePoint Lists** permanently store requests and configuration.
+- IT agents use a queue to assign, update, and resolve requests.
+- **Power Automate** assigns agents, sends notifications, starts approvals, and reminds agents about overdue requests.
 
 ```text
-Employee
-   |
-   v
-Power Apps canvas app -------------------------+
-   |                                           |
-   | create/read/update                        | agent queue/update
-   v                                           v
-SharePoint: IT Service Requests <--------- IT Support Agent
-   |             |              |
-   |             |              +--> IT Request History
-   |             +-----------------> IT Categories / IT Support Agents
-   |
-   v
-Power Automate
-   ├── New-request assignment and notification
-   ├── Conditional approval
-   ├── Status-change notification/history
-   └── Scheduled overdue follow-up
+Employee -> Power Apps -> SharePoint Lists <- IT Agent
+                           |
+                           v
+                    Power Automate
+              assignment / approval / email
 ```
 
-The most important design idea is separation of responsibility:
+Do not say “Power Apps stores the data.” Power Apps is the interface; SharePoint is the data source.
 
-- **Power Apps:** interactive user interface.
-- **SharePoint:** persistent data.
-- **Power Automate:** background process and notifications.
+## 2. The four important terms
 
-## 4. Terms you must understand first
-
-| Term | Simple meaning in this project |
+| Term | Meaning here |
 |---|---|
-| Canvas app | The screens and buttons the employee/agent uses. |
-| SharePoint list | A cloud table containing rows called items and fields called columns. |
-| Data source | The list connected to the app. |
-| Connector | The Power Platform interface to SharePoint, Outlook, Approvals, and other services. |
-| Gallery | A Power Apps control that repeats a design for every request record. |
-| Form | A Power Apps control used to display, create, or edit one request. |
-| Power Fx | The formula language used in control properties. |
-| Flow | A Power Automate process triggered by an event or schedule. |
-| Trigger | The event that starts a flow. |
-| Action | A step inside a flow, such as Send an email or Update item. |
-| Choice column | A controlled list of values such as Low, Medium, High. |
-| Person column | A SharePoint column that stores a Microsoft 365 user. |
-| SLA | The target time allowed for the IT team to respond or resolve. |
-| Delegation | Letting SharePoint evaluate a filter/sort over the complete list. |
+| Gallery | Displays multiple requests. |
+| Form | Creates or edits one request. |
+| Power Fx | Formulas controlling the app. |
+| Flow | Background automation triggered by a data change or schedule. |
 
-## 5. Requirements used for the build
+## 3. SharePoint data design
 
-### User roles
+### Main list: `IT Service Requests`
 
-1. **Requester:** employee who submits and tracks personal requests.
-2. **IT Agent:** person who handles requests.
-3. **IT Manager:** can review all work, approve selected requests, reassign, and view metrics.
+Create it through **SharePoint > Site contents > New > List > Blank list**.
 
-### Request lifecycle
-
-```text
-New
-  -> Pending Approval (only when required)
-  -> Assigned
-  -> In Progress
-  -> Waiting for User
-  -> Resolved
-  -> Closed
-
-Alternative endings: Rejected or Cancelled
-```
-
-### Example business rules
-
-- Title, description, category, and priority are required.
-- New requests receive a unique number such as `SR-000125`.
-- Category decides default IT agent and SLA hours.
-- Access and Purchase requests require approval.
-- A request cannot be resolved without a resolution description.
-- Requesters see their own requests; IT agents see the support queue according to permissions.
-- Overdue active requests generate reminders.
-
-## 6. Phase 1 — Create the SharePoint data model
-
-Use a dedicated SharePoint site such as `IT Service Desk - Training`. Do not build the demo in an important production site.
-
-### 6.1 Create the main list
-
-1. Open the SharePoint site.
-2. Select **Site contents**.
-3. Select **New > List**.
-4. Select **Blank list**.
-5. Name it `IT Service Requests`.
-6. Select **Create**.
-
-Keep SharePoint's built-in `ID`, `Created`, `Modified`, `Created By`, and `Modified By` columns.
-
-Create these columns using **Add column**:
-
-| Display name | Type | Configuration/purpose |
+| Column | Type | Why |
 |---|---|---|
-| Title | Single line of text | Short issue summary; required. |
-| RequestNumber | Single line of text | Flow writes `SR-000001`; make unique later if governance requires. |
-| Description | Multiple lines of text | Full problem description; plain text is simplest. |
+| Title | Text | Short issue summary. |
+| RequestNumber | Text | Generated value such as `SR-000125`. |
+| Description | Multiple lines | Full problem. |
 | Category | Choice | Hardware, Software, Network, Access, Purchase, Other. |
-| Priority | Choice | Low, Medium, High, Critical; default Medium. |
-| Status | Choice | New, Pending Approval, Assigned, In Progress, Waiting for User, Resolved, Closed, Rejected, Cancelled; default New. |
-| RequesterEmail | Single line of text | Lowercase email written by the app for filtering/integration. |
-| AssignedTo | Person | IT agent; allow one person. |
-| DueDate | Date and time | Calculated by the assignment flow. |
-| ApprovalRequired | Yes/No | Default No. |
-| ApprovalStarted | Yes/No | Default No; prevents duplicate approvals. |
-| ApprovalOutcome | Single line of text | Approved, Rejected, or blank. |
-| Resolution | Multiple lines of text | Required by app logic before Resolved. |
-| ResolvedOn | Date and time | Written when status becomes Resolved. |
-| LastReminderDate | Date only | Helps prevent repeated same-day reminders. |
+| Priority | Choice | Low, Medium, High, Critical. |
+| Status | Choice | New, Pending Approval, Assigned, In Progress, Resolved, Closed, Rejected. |
+| RequesterEmail | Text | Current user's normalized email. |
+| AssignedTo | Person | IT agent. |
+| DueDate | Date/time | SLA deadline. |
+| Resolution | Multiple lines | Agent's solution. |
+| ApprovalRequired | Yes/No | Whether approval is needed. |
+| ApprovalStarted | Yes/No | Prevents duplicate approval runs. |
+| ResolvedOn | Date/time | Resolution timestamp. |
 
-Enable attachments:
+SharePoint automatically supplies `ID`, `Created`, `Modified`, and `Created By`.
 
-1. In the list, select **Settings > List settings**.
-2. Select **Advanced settings**.
-3. Confirm attachments are enabled.
+### Configuration list: `IT Categories`
 
-Why keep both `Created By` and `RequesterEmail`? `Created By` is SharePoint's audit identity. `RequesterEmail` is a normalized text value that simplifies app filtering and flow integration. It must not be trusted as the only authorization control.
-
-### 6.2 Create the category configuration list
-
-Create a blank list named `IT Categories`:
-
-| Column | Type | Example |
-|---|---|---|
-| Title | Single line | Hardware |
-| DefaultAssignee | Person | hardware.agent@company.com |
-| SLAHours | Number | 24 |
-| NeedsApproval | Yes/No | No |
-| Active | Yes/No | Yes |
-
-Example rows:
-
-| Title | SLA hours | Needs approval |
-|---|---:|---:|
-| Hardware | 24 | No |
-| Software | 24 | No |
-| Network | 4 | No |
-| Access | 8 | Yes |
-| Purchase | 72 | Yes |
-| Other | 48 | No |
-
-The advantage of this list is that assignment and SLA configuration can change without editing the app or flow logic.
-
-### 6.3 Create the history list
-
-Create `IT Request History`:
-
-| Column | Type | Purpose |
-|---|---|---|
-| Title | Single line | Event summary. |
-| Request | Lookup to IT Service Requests | The related request item. |
-| RequestNumber | Single line | Easy display/search. |
-| EventType | Choice | Created, Assigned, Approval, Status Changed, Reminder, Resolved. |
-| FromStatus | Single line | Previous status when available. |
-| ToStatus | Single line | New status. |
-| Comment | Multiple lines | Event detail. |
-| PerformedByEmail | Single line | User/flow identity responsible. |
-
-SharePoint already has Created/Created By, so do not create duplicate event date columns unless the process requires a different timestamp.
-
-### 6.4 Create the support-agent list
-
-Create `IT Support Agents`:
-
-| Column | Type |
+| Column | Purpose |
 |---|---|
-| Title | Single line; agent name |
-| Email | Single line; lowercase and unique by process |
-| Role | Choice: Agent, Manager |
-| Active | Yes/No |
+| Title | Category name. |
+| DefaultAssignee | Agent for the category. |
+| SLAHours | Allowed completion time. |
+| NeedsApproval | Whether the category requires approval. |
 
-The app can use this small list to tailor navigation. It is not the final security boundary.
+Example: Network → network agent → 4 hours → no approval.
 
-### 6.5 Internal column names
+### History list: `IT Request History`
 
-SharePoint assigns an internal name when a column is created. Renaming its display name later usually does not change the internal name. Power Automate filters and integrations may expose internal names such as `AssignedTo` or encoded names.
+Stores Request ID, event type, old/new status, comment, and performer. It provides a readable workflow history instead of keeping only the latest state.
 
-Create columns with clean names first and record their internal names in documentation. This prevents mysterious flow filter errors later.
+An optional `IT Support Agents` list contains agent email, role, and active status for app navigation. It does not replace real SharePoint permissions.
 
-## 7. Phase 2 — Create the canvas app
+## 4. Build the canvas app
 
-### 7.1 Create a blank app
+### Create and connect
 
-1. Open `https://make.powerapps.com`.
-2. Confirm the correct development environment in the upper-right selector.
-3. Select **Create**.
-4. Choose a blank canvas app/start with blank design.
-5. Name it `IT Service Desk`.
-6. Select **Tablet** for this desktop-oriented demo.
-7. Select **Create**.
+1. Open `make.powerapps.com`.
+2. Select **Create > Blank canvas app**.
+3. Name it `IT Service Desk`.
+4. Open **Data > Add data > SharePoint**.
+5. Select the site and connect the three lists.
 
-To support different widths:
+### Screens
 
-1. Open **Settings > Display**.
-2. Turn off **Scale to fit**.
-3. Turn off **Lock aspect ratio** if required.
-4. Use vertical/horizontal auto-layout containers instead of fixed pixel placement.
+| Screen | Purpose |
+|---|---|
+| `scrHome` | Navigation. |
+| `scrMyRequests` | Employee's request gallery. |
+| `scrNewRequest` | New-request form. |
+| `scrRequestDetail` | One request and its history. |
+| `scrAgentQueue` | Requests handled by IT. |
+| `scrAgentUpdate` | Assignment, status, and resolution. |
 
-### 7.2 Connect the data
+Use auto-layout containers so screens resize cleanly. A screen contains controls; each control has properties containing Power Fx formulas.
 
-1. Select **Data** on the left rail.
-2. Select **Add data**.
-3. Search for **SharePoint**.
-4. Select/create the connection.
-5. Select the SharePoint site.
-6. Select:
-   - `IT Service Requests`
-   - `IT Categories`
-   - `IT Request History`
-   - `IT Support Agents`
-7. Select **Connect**.
+## 5. The six formulas you need to understand
 
-### 7.3 Initialize small user state
+Modern text inputs commonly use `.Value`; classic inputs commonly use `.Text`.
 
-Select **App** in Tree View and select `OnStart`:
+### A. Store the current user
+
+`App.OnStart`:
 
 ```powerfx
-Set(varUserEmail, Lower(User().Email));
-Set(
-    varAgentProfile,
-    LookUp(
-        'IT Support Agents',
-        Email = varUserEmail && Active = true
-    )
-);
-Set(varIsAgent, !IsBlank(varAgentProfile));
-Set(varIsManager, varAgentProfile.Role.Value = "Manager")
+Set(varUserEmail, Lower(User().Email))
 ```
 
-Run **App > Run OnStart** while developing if available.
-
-Why this is acceptable here: `IT Support Agents` is a tiny configuration list. Do not download the large request list during startup.
-
-Security warning: these variables only control the experience. SharePoint permissions must still protect the data.
-
-## 8. Phase 3 — Build the screens
-
-Create and rename:
-
-| Screen | User | Purpose |
-|---|---|---|
-| `scrHome` | All | Welcome, navigation, summary. |
-| `scrMyRequests` | Requester | Personal request gallery. |
-| `scrNewRequest` | Requester | New request form. |
-| `scrRequestDetail` | All authorized users | One request and history. |
-| `scrAgentQueue` | Agent/Manager | IT work queue. |
-| `scrAgentUpdate` | Agent/Manager | Assignment/status/resolution update. |
-
-Each screen should use:
-
-```text
-conPage (vertical)
-├── conHeader
-├── conContent
-└── conFooter (only if needed)
-```
-
-### 8.1 Home screen
-
-Add buttons:
-
-`btnNewRequest.OnSelect`:
-
-```powerfx
-NewForm(frmNewRequest);
-Navigate(scrNewRequest, ScreenTransition.Cover)
-```
-
-`btnMyRequests.OnSelect`:
-
-```powerfx
-Navigate(scrMyRequests, ScreenTransition.Fade)
-```
-
-`btnAgentQueue.Visible`:
-
-```powerfx
-varIsAgent
-```
-
-`btnAgentQueue.OnSelect`:
-
-```powerfx
-Navigate(scrAgentQueue, ScreenTransition.Fade)
-```
-
-Add a label:
-
-```powerfx
-"Welcome, " & User().FullName
-```
-
-For a small demo, summary labels can use `CountRows(Filter(...))`. In a large SharePoint list, counts/aggregates can be nondelegable or slow. Production dashboards may use prepared metrics, Power Automate, a SharePoint view, or Power BI.
-
-### 8.2 My Requests screen
-
-Insert:
-
-- Search text input `txtMySearch`.
-- Status dropdown `drpMyStatus`.
-- Vertical gallery `galMyRequests`.
-- New and Back buttons.
-
-`drpMyStatus.Items`:
-
-```powerfx
-["All", "New", "Pending Approval", "Assigned", "In Progress", "Waiting for User", "Resolved", "Closed"]
-```
+### B. Show only the employee's requests
 
 `galMyRequests.Items`:
 
@@ -374,706 +115,255 @@ SortByColumns(
     Filter(
         'IT Service Requests',
         RequesterEmail = varUserEmail &&
-        (drpMyStatus.Selected.Value = "All" || Status.Value = drpMyStatus.Selected.Value) &&
-        (IsBlank(txtMySearch.Value) || StartsWith(Title, txtMySearch.Value))
+        (IsBlank(txtSearch.Value) || StartsWith(Title, txtSearch.Value))
     ),
     "Created",
     SortOrder.Descending
 )
 ```
 
-Use `.Text` instead of `.Value` if you inserted a classic text input. Let Studio autocomplete confirm control properties.
+`Filter` returns matching records. `StartsWith` provides prefix search. `SortByColumns` shows newest requests first.
 
-Inside the gallery display:
+### C. Open a request
 
-```powerfx
-ThisItem.RequestNumber
-```
-
-```powerfx
-ThisItem.Title
-```
-
-```powerfx
-ThisItem.Status.Value & " • " & Text(ThisItem.Created, "mmm d, yyyy")
-```
-
-Gallery template/detail icon `OnSelect`:
+Gallery item `OnSelect`:
 
 ```powerfx
 Set(varSelectedRequestId, ThisItem.ID);
-Navigate(scrRequestDetail, ScreenTransition.Fade)
+Navigate(scrRequestDetail)
 ```
 
-Delegation interview point: equality and `StartsWith` can be delegable for supported SharePoint columns, but the exact full expression and Choice/Person behavior must be checked against current SharePoint delegation documentation and tested beyond the row limit.
+`ThisItem` is the current gallery record.
 
-### 8.3 New Request screen
+### D. Start a new request
 
-1. Select **Insert > Forms > Edit form**.
-2. Rename it `frmNewRequest`.
-3. Set `DataSource` to `'IT Service Requests'`.
-4. Set `DefaultMode` to `FormMode.New`.
-5. Add fields:
-   - Title
-   - Description
-   - Category
-   - Priority
-   - Attachments
-   - RequesterEmail
-   - Status
-6. Keep RequesterEmail and Status cards hidden but set their values.
-
-Unlock the RequesterEmail card only and set its `Update`:
+New button `OnSelect`:
 
 ```powerfx
-varUserEmail
+NewForm(frmRequest);
+Navigate(scrNewRequest)
 ```
 
-Unlock Status card only and set `Update` to the typed SharePoint Choice record:
+### E. Submit the form
 
-```powerfx
-{Value: "New"}
-```
-
-`btnSubmitRequest.OnSelect`:
+Submit button `OnSelect`:
 
 ```powerfx
 If(
-    locIsSubmitting,
-    false,
-    !frmNewRequest.Valid,
-    Notify("Complete all required fields.", NotificationType.Error),
-    UpdateContext({locIsSubmitting: true});
-    SubmitForm(frmNewRequest)
+    frmRequest.Valid,
+    SubmitForm(frmRequest),
+    Notify("Complete the required fields.", NotificationType.Error)
 )
 ```
 
-`frmNewRequest.OnSuccess`:
+Form `OnSuccess`:
 
 ```powerfx
-UpdateContext({locIsSubmitting: false});
-Set(varSelectedRequestId, frmNewRequest.LastSubmit.ID);
-Notify("Request submitted successfully.", NotificationType.Success);
-ResetForm(frmNewRequest);
-Navigate(scrRequestDetail, ScreenTransition.UnCover)
+Set(varSelectedRequestId, frmRequest.LastSubmit.ID);
+Notify("Request submitted.", NotificationType.Success);
+Navigate(scrRequestDetail)
 ```
 
-`frmNewRequest.OnFailure`:
+Navigate in `OnSuccess`, because it confirms SharePoint saved the record.
 
-```powerfx
-UpdateContext({locIsSubmitting: false});
-Notify(
-    Coalesce(frmNewRequest.Error, "The request could not be submitted."),
-    NotificationType.Error
-)
-```
+### F. Resolve a request
 
-`btnCancel.OnSelect`:
-
-```powerfx
-ResetForm(frmNewRequest);
-Back()
-```
-
-Why use a form instead of `Patch`? Attachments and standard field validation are easier in a supported SharePoint form. `Patch` is useful for targeted/custom updates, but you own more validation and type mapping.
-
-### 8.4 Request Detail screen
-
-Insert a Display Form named `frmRequestDetail`:
-
-```powerfx
-DataSource = 'IT Service Requests'
-```
-
-```powerfx
-Item = LookUp('IT Service Requests', ID = varSelectedRequestId)
-```
-
-Insert a history gallery `galHistory`:
-
-```powerfx
-SortByColumns(
-    Filter('IT Request History', Request.Id = varSelectedRequestId),
-    "Created",
-    SortOrder.Descending
-)
-```
-
-Whether the SharePoint lookup appears as `Request.Id`, `Request.ID`, or another generated name should be confirmed with Studio autocomplete.
-
-Requesters should not edit a request after workflow submission unless the process explicitly allows it. A Cancel button can be visible only for selected states:
-
-```powerfx
-frmRequestDetail.Item.RequesterEmail = varUserEmail &&
-frmRequestDetail.Item.Status.Value in ["New", "Assigned"]
-```
-
-But cancellation must also be permitted by SharePoint permissions/process logic; UI visibility is not security.
-
-### 8.5 Agent Queue screen
-
-Add:
-
-- `txtAgentSearch`
-- `drpAgentStatus`
-- `drpPriority`
-- `tglOnlyMine`
-- `galAgentQueue`
-
-Example `galAgentQueue.Items`:
-
-```powerfx
-SortByColumns(
-    Filter(
-        'IT Service Requests',
-        (drpAgentStatus.Selected.Value = "All" || Status.Value = drpAgentStatus.Selected.Value) &&
-        (drpPriority.Selected.Value = "All" || Priority.Value = drpPriority.Selected.Value) &&
-        (!tglOnlyMine.Checked || AssignedTo.Email = varUserEmail) &&
-        (IsBlank(txtAgentSearch.Value) || StartsWith(Title, txtAgentSearch.Value))
-    ),
-    "DueDate",
-    SortOrder.Ascending
-)
-```
-
-Person-field filters have connector-specific delegation behavior. For a large list, consider a normalized `AssignedToEmail` text column maintained by the flow, suitable indexes, and a query verified with Monitor/real volume.
-
-Color overdue records only as reinforcement:
+Agent button `OnSelect`:
 
 ```powerfx
 If(
-    ThisItem.DueDate < Now() && !(ThisItem.Status.Value in ["Resolved", "Closed", "Rejected", "Cancelled"]),
-    ColorValue("#C50F1F"),
-    ColorValue("#242424")
-)
-```
-
-Always show visible text such as `Overdue`; do not communicate only with red color.
-
-### 8.6 Agent Update screen
-
-Use either an Edit Form or deliberate custom controls. A form is easier for a beginner.
-
-Set `frmAgentUpdate.Item`:
-
-```powerfx
-LookUp('IT Service Requests', ID = varSelectedRequestId)
-```
-
-Include AssignedTo, Status, and Resolution.
-
-Save validation concept:
-
-```powerfx
-If(
-    cmbStatus.Selected.Value = "Resolved" && IsBlank(Trim(txtResolution.Value)),
-    Notify("A resolution is required before resolving the request.", NotificationType.Error),
+    IsBlank(Trim(txtResolution.Value)),
+    Notify("Enter the resolution first.", NotificationType.Error),
     IfError(
         Patch(
             'IT Service Requests',
             LookUp('IT Service Requests', ID = varSelectedRequestId),
             {
-                AssignedTo: cmbAssignedTo.Selected,
-                Status: {Value: cmbStatus.Selected.Value},
+                Status: {Value: "Resolved"},
                 Resolution: Trim(txtResolution.Value)
             }
         ),
-        Notify("The update failed.", NotificationType.Error),
-        Notify("Request updated.", NotificationType.Success);
-        Navigate(scrRequestDetail, ScreenTransition.UnCover)
+        Notify("Update failed.", NotificationType.Error),
+        Notify("Request resolved.", NotificationType.Success)
     )
 )
 ```
 
-Exact Person-control record shape depends on the control's `Items` source. Use SharePoint-generated data card controls or Studio autocomplete instead of guessing.
+`Patch` updates a selected SharePoint item. `IfError` handles connector failure.
 
-## 9. Phase 4 — Build the Power Automate flows
+## 6. The four Power Automate flows
 
-Build flows in a development solution when possible. Use clear names:
+### Flow 1 — New request assignment
 
-1. `ITSM - New Request Assignment`
-2. `ITSM - Request Approval`
-3. `ITSM - Status Change Notification`
-4. `ITSM - Overdue Reminder`
+Trigger: **SharePoint — When an item is created**.
 
-### 9.1 Flow 1 — New Request Assignment
+Steps:
 
-#### Purpose
-
-When a request is created:
-
-- Generate request number.
-- Retrieve category configuration.
-- Set assignee, due date, approval requirement, and initial workflow status.
-- Notify requester and agent.
-- Create history.
-
-#### Create it step by step
-
-1. Open `https://make.powerautomate.com` or select **Flows** in the maker portal.
-2. Select **Create > Automated cloud flow**.
-3. Name: `ITSM - New Request Assignment`.
-4. Trigger: **SharePoint — When an item is created**.
-5. Select the Site Address and `IT Service Requests` list.
-6. Add **SharePoint — Get items**.
-7. Site: same site.
-8. List: `IT Categories`.
-9. Filter Query concept: find active category whose Title equals the trigger Category value.
-10. Set **Top Count** to `1`.
-11. Add a **Condition** checking whether one configuration record was returned.
-
-Use a Compose or expression for request number:
+1. Read the request Category.
+2. Get the matching row from `IT Categories`.
+3. Generate request number:
 
 ```text
 concat('SR-', formatNumber(triggerOutputs()?['body/ID'], '000000'))
 ```
 
-Due date concept using the returned SLA hours:
+4. Set AssignedTo from DefaultAssignee.
+5. Calculate DueDate using SLAHours.
+6. Set Status to Assigned or Pending Approval.
+7. Update the SharePoint item.
+8. Email requester and agent.
+9. Create a history item.
 
-```text
-addHours(utcNow(), int(first(body('Get_items')?['value'])?['SLAHours']))
-```
+### Flow 2 — Approval
 
-Use dynamic content/expression autocomplete because action names and internal column names affect the exact expression.
+Trigger: request modified with:
 
-12. Add **SharePoint — Update item**.
-13. Set ID to the trigger ID.
-14. Preserve required fields such as Title using trigger dynamic content.
-15. Set:
-    - RequestNumber = Compose output.
-    - AssignedTo = DefaultAssignee Email.
-    - DueDate = calculated value.
-    - ApprovalRequired = NeedsApproval.
-    - Status = `Pending Approval` when NeedsApproval is true, otherwise `Assigned`.
-16. Add **Send an email (V2)** to requester.
-17. Add a second email/Teams notification to the assigned agent when appropriate.
-18. Add **Create item** in `IT Request History` with EventType `Created/Assigned`.
-19. Save and test with one request from each category type.
+- ApprovalRequired = Yes.
+- ApprovalStarted = No.
+- Status = Pending Approval.
 
-If no category configuration is found, do not silently fail. Update or log a safe error/status and notify the support owner.
+Steps:
 
-### 9.2 Flow 2 — Conditional Approval
+1. Set ApprovalStarted = Yes.
+2. Use **Start and wait for an approval**.
+3. If approved, set Status = Assigned.
+4. If rejected, set Status = Rejected.
+5. Write history and notify requester.
 
-#### Purpose
+`ApprovalStarted` prevents the flow's own update from starting another approval.
 
-Start approval once for requests whose category requires it.
+### Flow 3 — Status notification
 
-#### Trigger design
+Trigger: **When an item is created or modified**.
 
-1. Create an automated flow.
-2. Trigger: **SharePoint — When an item is created or modified**.
-3. Add trigger conditions or immediate conditions requiring:
-   - ApprovalRequired = true.
-   - ApprovalStarted = false.
-   - Status = Pending Approval.
+1. Use **Get changes for an item or a file**.
+2. Check whether Status changed.
+3. Write the transition to history.
+4. Email requester.
+5. If Resolved, set ResolvedOn and include Resolution.
 
-Why `ApprovalStarted` exists: the flow updates the SharePoint item, which triggers the flow again. Setting it true before starting approval prevents a duplicate approval loop.
+### Flow 4 — Overdue reminder
 
-#### Actions
+Trigger: **Recurrence**, once per day.
 
-1. **Update item:** set ApprovalStarted = Yes.
-2. **Start and wait for an approval**.
-3. Approval type: typically Approve/Reject — First to respond for one approver, or choose the correct business rule.
-4. Assigned To: IT Manager or category approver from configuration.
-5. Title: include RequestNumber and request Title.
-6. Details: include requester, priority, description, and link to the item/app.
-7. Add a **Condition** on the approval Outcome.
+1. Get active requests where DueDate has passed.
+2. Email AssignedTo and IT manager.
+3. Record the reminder date/history.
 
-If approved:
+Use a SharePoint filter query and indexed columns rather than downloading every list item.
 
-- Update ApprovalOutcome = Approved.
-- Update Status = Assigned.
-- Create Approval history item.
-- Notify requester and assigned agent.
+## 7. One request from beginning to end
 
-If rejected:
+1. Employee enters a Network problem and selects Submit.
+2. `SubmitForm` creates SharePoint item ID 125.
+3. `OnSuccess` opens the saved request.
+4. Flow 1 finds Network configuration.
+5. It generates `SR-000125`, assigns the network agent, and calculates a four-hour due date.
+6. It updates Status to Assigned and sends notifications.
+7. Agent sees the request in `scrAgentQueue`.
+8. Agent changes it to In Progress and later Resolved with a resolution.
+9. Flow 3 detects the status changes, writes history, and emails the employee.
+10. If the due date passes first, Flow 4 sends a reminder.
 
-- Update ApprovalOutcome = Rejected.
-- Update Status = Rejected.
-- Save approval comments in history.
-- Notify requester.
+For an Access request, Flow 1 sets Pending Approval and Flow 2 controls the next step.
 
-Production considerations:
+## 8. Three important professional points
 
-- Approver missing/inactive.
-- Timeout and escalation.
-- Retry/duplicate events.
-- Approver authorization.
-- Immutable decision history.
-- Connection owner continuity.
-
-### 9.3 Flow 3 — Status Change Notification
-
-#### Purpose
-
-Notify only when Status actually changes and record the transition.
-
-#### Steps
-
-1. Trigger: **When an item is created or modified**.
-2. Add **Get changes for an item or a file (properties only)**.
-3. ID = trigger ID.
-4. Since = **Trigger Window Start Token**.
-5. Add Condition: **Has Column Changed: Status** equals true.
-6. If true:
-   - Create a history item.
-   - Send a status email to requester.
-   - Notify assigned agent where relevant.
-7. If new Status is Resolved:
-   - Update ResolvedOn with `utcNow()`.
-   - Include Resolution in the requester email.
-
-Updating `ResolvedOn` triggers the flow again, but on the second run Status did not change, so the status-change branch should not repeat.
-
-To store exact FromStatus, you may need version/history retrieval or explicitly write transitions from the app/flow. Do not claim `Get changes` automatically returns the previous value; it primarily tells whether a column changed.
-
-### 9.4 Flow 4 — Scheduled Overdue Reminder
-
-#### Purpose
-
-Send a daily reminder for active requests whose DueDate has passed.
-
-#### Steps
-
-1. Select **Create > Scheduled cloud flow**.
-2. Name: `ITSM - Overdue Reminder`.
-3. Recurrence: once per day at an agreed time zone.
-4. Add **Get items** for `IT Service Requests`.
-5. Use a server-side Filter Query for active statuses and overdue DueDate when possible.
-6. Add a Condition to ensure LastReminderDate is not today.
-7. Send email/Teams reminder to AssignedTo and optionally IT Manager.
-8. Update LastReminderDate.
-9. Create a Reminder history item.
-
-Avoid retrieving every list row daily and filtering only inside the flow. Use SharePoint-supported OData filters and indexed columns, then test with expected volume and pagination settings.
-
-## 10. How assignment works in plain English
-
-Example:
-
-1. Employee submits Category = Network.
-2. SharePoint creates item ID 125 with Status New.
-3. New Request flow reads the Network row from `IT Categories`.
-4. It finds default agent and SLA = 4 hours.
-5. It creates RequestNumber `SR-000125`.
-6. It sets AssignedTo to the network agent.
-7. It sets DueDate to current time + 4 hours.
-8. Because Network does not require approval, it sets Status Assigned.
-9. It emails requester and agent.
-10. It writes the Created/Assigned event to history.
-
-For Category = Access, the same flow sets Pending Approval and the Approval flow starts once.
-
-## 11. Security design — do not confuse it with filters
-
-### Demo behavior
-
-The requester gallery filters:
+### UI filters are not security
 
 ```powerfx
 RequesterEmail = varUserEmail
 ```
 
-This gives the correct user experience but does not prevent a user with broad SharePoint permission from opening the list directly.
+improves the app experience but does not secure the SharePoint list. Real authorization comes from SharePoint permissions and IT security groups. If row security becomes complex, Dataverse is a better platform to evaluate.
 
-### Real security options
+### Small-data success does not prove delegation
 
-For a SharePoint-based internal project:
+SharePoint should evaluate large-list filters on the server. Use supported direct comparisons, `StartsWith`, indexed columns, App Checker, Monitor, and realistic data. Loading the entire list into a collection is not a proper fix.
 
-- Configure list item-level read/edit behavior for creators when it matches the requirement.
-- Give the IT support group an appropriate elevated permission level.
-- Use Microsoft 365/Entra groups, not individual ad hoc sharing.
-- Protect the SharePoint list/site directly.
-- Review attachment and history-list permissions.
-- Use a carefully designed item-permission flow only if necessary; unique permission scopes can become difficult at scale.
+### Flows are asynchronous
 
-If security relationships become complex—manager hierarchy, teams, departments, column security, large row sharing—Dataverse is usually a stronger platform to evaluate.
+Immediately after `SubmitForm`, the SharePoint item exists but RequestNumber or AssignedTo may still be blank until Flow 1 completes. The detail screen should temporarily show New/Processing and refresh deliberately.
 
-### What to say in the interview
+## 9. How it was tested
 
-> The app filter was for user experience, while authorization was enforced at SharePoint through list/item permissions and IT support group access. I would never describe `Visible` or `Filter` as security. If the access model grew more complex, I would evaluate Dataverse roles, ownership, and teams.
+- Required fields cannot be blank.
+- Hardware request assigns the correct agent.
+- Access request creates exactly one approval.
+- Approval and rejection update the correct status.
+- Resolution is required before Resolved.
+- Requesters cannot access other employees' records through SharePoint permissions.
+- Agent and requester notifications arrive.
+- Overdue requests receive one planned reminder.
+- Flow failure and missing category configuration are logged/handled.
+- Gallery remains correct beyond the Power Apps local row limit.
 
-## 12. Delegation and SharePoint performance
+## 10. Your 30-second answer
 
-Likely high-volume columns to index:
+> I built an internal IT service desk using a Power Apps canvas app backed by SharePoint. Employees submit and track requests, while IT agents use a filtered queue to assign, update, and resolve them. A category configuration list controls the default agent, SLA, and approval requirement. Power Automate generates the request number, handles assignment and conditional approval, sends status notifications, and runs overdue reminders. I also separated UI filtering from SharePoint permissions and tested delegation, errors, and duplicate flow triggers.
 
-- RequesterEmail
-- Status
-- AssignedTo or normalized AssignedToEmail
-- DueDate
-- Category
-- Priority
+## 11. Your two-minute answer
 
-Rules:
+> I started with three roles: requester, IT agent, and manager, then defined the request lifecycle from New to Assigned, In Progress, Resolved, and Closed, with a Pending Approval path.
+>
+> SharePoint stores the data. The main list contains request details, category, priority, status, assignee, SLA due date, and resolution. A category list stores routing configuration, and a history list stores important workflow events.
+>
+> In the canvas app, requesters use a form to submit and galleries to track their requests. Agents have a queue and an update screen. I used `SubmitForm` with `OnSuccess` and `OnFailure`, delegable gallery filters, and `Patch` for targeted status/resolution updates.
+>
+> Four flows handle the background work: new-request assignment, conditional approval, status-change notification, and scheduled overdue reminders. The approval flow sets an ApprovalStarted flag before creating the approval to prevent loops and duplicates.
+>
+> SharePoint permissions protect the actual records; app filters only improve the experience. I tested with requester and agent accounts, checked delegation with realistic volume, and documented the data model, formulas, flows, security assumptions, and known SharePoint limits.
 
-- Prefer direct delegable equality/prefix filters.
-- Use `StartsWith` instead of an unsupported contains pattern when business search allows it.
-- Do not `ClearCollect` the entire request list.
-- Do not call `LookUp` separately for every gallery row.
-- Delay search input if supported.
-- Use Monitor with realistic data.
-- Keep views/queries narrow.
+## 12. Likely follow-up questions
 
-SharePoint has thresholds and connector-specific delegation behavior. A formula working with 20 demo items does not prove correctness with 20,000.
+### Why SharePoint instead of Dataverse?
 
-## 13. Error handling and reliability
+> It was a relatively simple internal Microsoft 365 request process with existing SharePoint access. If it required complex relationships, team/manager row security, column security, or larger enterprise scale, I would evaluate Dataverse.
 
-### App
+### Why use a configuration list?
 
-- Disable submit while saving.
-- Use Form `OnSuccess` and `OnFailure`.
-- Use `IfError` around `Patch`.
-- Show useful messages but not raw sensitive connector details.
-- Preserve user input when a recoverable failure occurs.
+> Agent, SLA, and approval routing can change without editing and republishing the app.
 
-### Flows
+### How did you prevent duplicate approvals?
 
-Use Scopes:
+> The flow starts only when approval is required, status is Pending Approval, and ApprovalStarted is false. It sets ApprovalStarted true before creating the approval.
+
+### What was the difficult part?
+
+> Coordinating the saved SharePoint item with asynchronous flows, avoiding approval loops, and keeping search/filter formulas delegable while separating UI filtering from actual permissions.
+
+### `Patch` or `SubmitForm`?
+
+> I used `SubmitForm` for request creation because forms handle validation and attachments. I used `Patch` for focused agent updates where I controlled validation and errors.
+
+### What would you improve?
+
+> Stronger business-hours SLA calculation, Power BI reporting, better telemetry/idempotency, automated provisioning, and Dataverse migration if security or scale became more complex.
+
+## 13. What you must draw on paper
 
 ```text
-Try
-  Get configuration
-  Update request
-  Send notifications
-
-Catch (run after failure/timeout)
-  Log request ID and failed stage
-  Notify support owner
-  Set safe process/error status where appropriate
-
-Finally
-  Cleanup/telemetry
+Requester screens        SharePoint             Agent screens
+New / My / Detail  <-->  Requests list   <-->  Queue / Update
+                           |       |
+                    Categories   History
+                           |
+                    Power Automate
+              Assign / Approve / Notify / Remind
 ```
 
-Make automation idempotent. The same trigger/retry should not create two approvals or duplicate business effects.
+Explain one Network request from submission to resolution. If you can do that without reading, you understand the project.
 
-## 14. Testing plan
+## 14. Honest final sentence
 
-### Functional tests
+If you built only the training demo, say:
 
-| Test | Expected result |
-|---|---|
-| Submit Hardware request | Number, assignment, due date, emails, history. |
-| Submit Access request | Pending Approval and one approval only. |
-| Approve | Status Assigned; outcome/history/notifications. |
-| Reject | Status Rejected; comment/history/notification. |
-| Resolve without resolution | App blocks and explains error. |
-| Resolve with text | Status and ResolvedOn updated; requester notified. |
-| Search/filter | Correct records and no delegation warning for intended query. |
-| Overdue scheduled run | One reminder per planned interval; LastReminderDate updated. |
+> I built and tested the complete demo and understand its data, formulas, and flow architecture. Before calling it enterprise production-ready, I would validate real list volume, permissions, licensing, monitoring, ownership, and support requirements with the platform administrator.
 
-### Security tests
+## References
 
-- Requester A cannot read Requester B data through SharePoint direct link/API according to design.
-- Normal requester cannot open Agent Queue data merely by changing navigation.
-- Agent can update only allowed fields/items.
-- Approval operation verifies intended approver/process.
-- Flow connections use least privilege.
-
-### Reliability tests
-
-- Double-click submit.
-- Flow retry.
-- Missing category configuration.
-- Missing/inactive assignee.
-- Outlook/Approvals action failure.
-- Concurrent agent update.
-- Large attachment.
-- List contains records beyond delegation limit.
-
-### Device/accessibility tests
-
-- Desktop and phone/tablet width if supported.
-- Keyboard navigation.
-- Screen-reader labels for icon buttons.
-- Zoom and contrast.
-- Errors shown with text, not color alone.
-
-## 15. Documentation deliverables
-
-For the CV statement “documented application and workflow logic,” explain that you prepared:
-
-- Business requirements and roles.
-- Architecture diagram.
-- SharePoint data dictionary and internal column names.
-- Screen/control inventory.
-- Important Power Fx formulas.
-- Flow trigger/action diagrams.
-- Security model and group ownership.
-- Test cases and evidence.
-- Deployment/configuration instructions.
-- Support owner and troubleshooting guide.
-- Known limitations and improvement backlog.
-
-## 16. Deployment and ownership
-
-For a professional version:
-
-- Develop in a dedicated development environment/site.
-- Put canvas app and flows in a solution when supported.
-- Use connection references for flows/connectors.
-- Use environment variables for site/list IDs, support mailbox, and other environment configuration where practical.
-- Provision SharePoint lists separately through documented/manual or automated site provisioning; ordinary Power Platform solutions do not automatically move the complete SharePoint schema/data.
-- Test with non-owner accounts.
-- Publish the canvas app and share with groups.
-- Configure SharePoint permissions separately.
-- Use organizational/service ownership for critical flows where supported.
-- Monitor failures and handle owner departure.
-
-## 17. What was technically difficult?
-
-Use a genuine answer such as:
-
-> The difficult part was coordinating app state with background flow updates. The SharePoint item is created before the flow assigns a number and agent, so the app cannot assume those fields are immediately populated. I saved the item first, navigated using `LastSubmit.ID`, showed the current status, and refreshed deliberately when the user needed the flow result. I also used an ApprovalStarted flag and trigger conditions to prevent the approval flow from starting twice.
-
-Other defensible difficulties:
-
-- SharePoint Choice and Person record types in Power Fx.
-- Delegation with search and Person fields.
-- Avoiding trigger loops.
-- Separating UI filters from actual list permissions.
-- Handling missing category configuration.
-- Designing status transitions and history.
-
-## 18. The 30-second interview answer
-
-> I built an internal IT service desk as a canvas app backed by SharePoint. Employees submit categorized requests and track them, while IT agents use a filtered queue to assign, update, and resolve work. A main SharePoint list stores the request, with category configuration and history lists. Power Automate generates the service number, chooses the default assignee and SLA, handles conditional approvals, sends status notifications, and runs overdue reminders. I separated the UI from data permissions, tested delegation and flow loops, and documented the schema, formulas, workflows, security, and support process.
-
-## 19. The two-minute interview answer
-
-> I started by defining three personas: requester, IT agent, and manager, then defined the request lifecycle from New through Assigned, In Progress, Resolved, and Closed, with Pending Approval and Rejected paths. I used a SharePoint list called IT Service Requests for the transaction data, and smaller lists for category-to-agent/SLA configuration, support agents, and request history.
->
-> In Power Apps I created a responsive canvas app. Requesters have Home, New Request, My Requests, and Detail screens. IT agents also get an Agent Queue and Update screen. I used an Edit Form for creation because it handles SharePoint validation and attachments, `SubmitForm` with `OnSuccess`/`OnFailure`, and galleries with delegable filters such as direct requester equality and `StartsWith` search. Targeted agent updates use `Patch` with validation—for example, Resolution is required before setting Resolved.
->
-> Power Automate handles background logic. The new-item flow reads category configuration, generates `SR-` plus the SharePoint ID, assigns the agent, calculates the SLA due date, and sends notifications. A separate approval flow starts only when ApprovalRequired is true and ApprovalStarted is false, which prevents trigger loops and duplicate approvals. Another flow detects actual status-column changes and writes history, and a scheduled flow sends overdue reminders.
->
-> For security, the app filters improve UX but SharePoint permissions and groups protect the list. I tested with requester and agent accounts, reviewed delegation and flow failures, and documented the architecture, data dictionary, formulas, flows, security assumptions, deployment, and known limits. If the security and relationship requirements grew, I would consider moving the data model to Dataverse.
-
-## 20. The five-minute whiteboard explanation
-
-Draw four boxes:
-
-1. Users: Requester, Agent, Manager.
-2. Canvas app screens.
-3. SharePoint lists and relationships/configuration.
-4. Four Power Automate flows.
-
-Then narrate one Hardware request end to end:
-
-1. User opens New Request.
-2. `NewForm` prepares empty defaults.
-3. `SubmitForm` validates and creates the SharePoint item.
-4. `OnSuccess` captures `LastSubmit.ID` and navigates to detail.
-5. SharePoint-created flow receives item ID.
-6. Flow reads Hardware category configuration.
-7. Flow creates RequestNumber and due date, assigns agent, updates status.
-8. Flow sends emails and writes history.
-9. Agent sees it through Agent Queue filters.
-10. Agent moves to In Progress, then Resolved with a resolution.
-11. Status flow detects the change, records it, and notifies requester.
-12. Scheduled flow reminds the agent if DueDate passes before resolution.
-
-Finish with three risks and mitigations:
-
-- Delegation/list growth: delegable filters, indexes, realistic testing.
-- Security: list permissions/groups, not hidden controls.
-- Duplicate automation: trigger conditions, ApprovalStarted/idempotency.
-
-## 21. Follow-up questions and strong answers
-
-### Why did you use SharePoint instead of Dataverse?
-
-> It was an internal Microsoft 365 scenario with relatively simple request records, existing SharePoint access, and document/attachment needs. I still designed for SharePoint's delegation and permission limitations. If we needed richer relational data, manager/team row security, complex audit, or model-driven operations at scale, I would evaluate Dataverse.
-
-### Why use a category configuration list?
-
-> It removes assignee, SLA, and approval decisions from hard-coded formulas. An authorized administrator can change the routing configuration without republishing the app.
-
-### Why separate the flows?
-
-> Each flow has one operational responsibility and can be tested, monitored, retried, and changed independently. The boundaries also make trigger conditions and loop prevention clearer.
-
-### How did you avoid duplicate approvals?
-
-> The trigger requires ApprovalRequired true, Status Pending Approval, and ApprovalStarted false. The flow sets ApprovalStarted true before creating the approval. For a stronger production design I would also use correlation/history and idempotency checks.
-
-### How did you track status history?
-
-> A status-change flow uses SharePoint's Get changes action to detect whether Status changed, then writes a separate history item and notifies the requester. Exact previous-value storage needs explicit version/history or transition capture; I would not claim Get changes returns every old value automatically.
-
-### How did you secure the app?
-
-> App sharing and UI visibility were only the first layer. SharePoint list/item permissions and IT group membership protected the records. The flow used least-privilege connections. I tested with real requester and agent accounts rather than only the owner.
-
-### How did you handle errors?
-
-> The app uses form `OnFailure`, `IfError` for Patch, and saving flags. Flows use Try/Catch/Finally-style scopes, safe logging with request ID/stage, and support notifications. Missing category configuration follows an explicit failure path.
-
-### What is delegation here?
-
-> Power Apps must translate gallery filters to SharePoint so the server searches the complete list. If part of the formula is nondelegable, only the local row-limit subset may be evaluated. I used supported direct comparisons/prefix search, indexed key columns, warnings/Monitor, and realistic-volume tests.
-
-### What would you improve next?
-
-> I would add stronger SLA/business-hours calculation, feedback/knowledge articles, Power BI metrics, automated solution/list provisioning, more complete idempotency/telemetry, and evaluate Dataverse if the security/relationship/scale requirements increased.
-
-### Did the app call every flow directly?
-
-> No. Core lifecycle flows were SharePoint-triggered so the process runs regardless of which allowed client changes the item. A direct Power Apps trigger is useful when the user needs an immediate action/response, but it should not be the only enforcement path for mandatory workflow.
-
-### What happens immediately after save?
-
-> The SharePoint row exists, but background fields such as RequestNumber and AssignedTo may not be populated yet because the flow is asynchronous. The detail screen uses the saved ID and can show Processing/New until a deliberate refresh retrieves the flow update.
-
-## 22. Be honest without losing the interview
-
-If you have only studied/built the demo, say:
-
-> I built the complete demo and can explain the data model, app formulas, and flow logic. I have not yet operated it at enterprise production scale, so for production I would validate permissions, licensing, list volume, gateway/connectors, monitoring, and support ownership with the platform administrator.
-
-Do not invent user counts, production incidents, measured performance numbers, or security approvals. Interviewers often ask follow-ups that reveal fabricated experience. A junior who deeply understands a real demo is stronger than someone who claims unsupported production history.
-
-## 23. Build-this-tonight minimum demo
-
-If the interview is tomorrow, build this subset in order:
-
-1. Create `IT Service Requests` with Title, Description, Category, Priority, Status, RequesterEmail, AssignedTo, DueDate, Resolution.
-2. Create `IT Categories` with one or two rows.
-3. Build New Request form and My Requests gallery.
-4. Build Agent Queue and one status update action.
-5. Build New Request Assignment flow.
-6. Build either Approval flow or Status Notification flow.
-7. Test with at least five items.
-8. Draw the full four-flow architecture even if the scheduled flow is not implemented yet.
-9. Practice the two-minute answer.
-
-After the interview, build all four flows and security tests before representing the project as production-complete.
-
-## 24. Final recall checklist
-
-Without opening this file, answer:
-
-- What are the four SharePoint lists and why does each exist?
-- What happens between `SubmitForm` and `OnSuccess`?
-- Why does the approval flow not loop?
-- How is request number generated?
-- How are agent and due date selected?
-- How is status change detected?
-- Why is the gallery filter not security?
-- What is the delegation risk?
-- How are errors handled in app and flow?
-- How would you deploy and support it?
-- When would you replace SharePoint with Dataverse?
-
-If you can answer all eleven in your own words, you understand the project rather than merely memorizing the CV bullets.
-
-## Primary references
-
-- [Connect Power Apps to SharePoint](https://learn.microsoft.com/power-apps/maker/canvas-apps/connections/connection-sharepoint-online)
-- [Edit and display forms](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/control-form-detail)
-- [SharePoint delegation support](https://learn.microsoft.com/power-apps/maker/canvas-apps/connections/connection-sharepoint-online#power-apps-delegable-functions-and-operations-for-sharepoint)
-- [Trigger flows from canvas apps](https://learn.microsoft.com/power-apps/maker/canvas-apps/how-to/trigger-flow)
-- [SharePoint connector](https://learn.microsoft.com/connectors/sharepointonline/)
+- [Power Apps and SharePoint](https://learn.microsoft.com/power-apps/maker/canvas-apps/connections/connection-sharepoint-online)
+- [Form controls](https://learn.microsoft.com/power-apps/maker/canvas-apps/controls/control-form-detail)
+- [SharePoint delegation](https://learn.microsoft.com/power-apps/maker/canvas-apps/connections/connection-sharepoint-online#power-apps-delegable-functions-and-operations-for-sharepoint)
 - [Power Automate approvals](https://learn.microsoft.com/power-automate/get-started-approvals)
-- [Error handling in cloud flows](https://learn.microsoft.com/power-automate/guidance/coding-guidelines/error-handling)
 
